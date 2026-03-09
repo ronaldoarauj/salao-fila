@@ -15,7 +15,6 @@ import {
   VazioTexto,
   VazioSubtexto
 } from '../components/StyledComponents';
-
 import GraficoHistorico from '../components/GraficoHistorico';
 
 // Cores
@@ -49,18 +48,12 @@ const fadeIn = keyframes`
   }
 `;
 
-const fadeOut = keyframes`
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.5);
-  }
+// Componentes estilizados
+const AdminContainer = styled.div`
+  background: ${colors.gray100};
+  min-height: 100vh;
 `;
 
-// NOVO: Componente de Feedback (Número Grande)
 const FeedbackOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -107,12 +100,6 @@ const FeedbackSubtexto = styled.div`
   font-size: 1.25rem;
   color: rgba(255, 255, 255, 0.9);
   margin-top: 1rem;
-`;
-
-// Componentes existentes
-const AdminContainer = styled.div`
-  background: ${colors.gray100};
-  min-height: 100vh;
 `;
 
 const BotoesContainer = styled.div`
@@ -229,6 +216,7 @@ const TabsContainer = styled.div`
   margin-bottom: 2rem;
   border-bottom: 2px solid ${colors.gray200};
   padding-bottom: 1rem;
+  flex-wrap: wrap;
 `;
 
 const Tab = styled.button`
@@ -341,7 +329,7 @@ const LoginTitle = styled.h1`
 
 export default function AdminPage() {
   const [fila, setFila] = useState([]);
-  const [proximaSenha, setProximaSenha] = useState(0); // Valor inicial, será substituído
+  const [proximaSenha, setProximaSenha] = useState(0);
   const [logado, setLogado] = useState(false);
   const [senhaInput, setSenhaInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -360,7 +348,7 @@ export default function AdminPage() {
     mensagem: ''
   });
 
-  // NOVA FUNÇÃO: Carregar última senha do banco
+  // Carregar última senha do banco
   const carregarUltimaSenha = async () => {
     try {
       const res = await fetch('/api/config');
@@ -373,7 +361,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (logado) {
-      carregarUltimaSenha(); // Carrega a última senha ao logar
+      carregarUltimaSenha();
       buscarFila();
       const intervalo = setInterval(buscarFila, 2000);
       return () => clearInterval(intervalo);
@@ -438,7 +426,7 @@ export default function AdminPage() {
       body: JSON.stringify({ numero: nova })
     });
     
-    setProximaSenha(nova); // Atualiza o estado local
+    setProximaSenha(nova);
     await buscarFila();
     
     mostrarFeedback(nova, 'add', 'Cliente adicionado à fila');
@@ -471,12 +459,11 @@ export default function AdminPage() {
     if (confirm('Tem certeza? Isso vai apagar toda a fila!')) {
       setLoading(true);
       await fetch('/api/fila', { method: 'PUT' });
-      await carregarUltimaSenha(); // Recarrega a última senha (que vai ser 100)
+      await carregarUltimaSenha();
       await buscarFila();
       setLoading(false);
     }
   };
-
 
   // Tela de Login
   if (!logado) {
@@ -512,7 +499,7 @@ export default function AdminPage() {
   // Painel Admin
   return (
     <AdminContainer>
-      {/* NOVO: Feedback Overlay */}
+      {/* Feedback Overlay */}
       {feedback.show && (
         <FeedbackOverlay>
           <FeedbackCard variant={feedback.tipo}>
@@ -542,7 +529,7 @@ export default function AdminPage() {
       </Header>
 
       <Main>
-        {/* BOTÕES EM CIMA DOS CARDS */}
+        {/* Botões em cima */}
         <BotoesContainer>
           <BotaoGrande
             variant="success"
@@ -643,41 +630,41 @@ export default function AdminPage() {
         )}
 
         {tabAtiva === 'stats' && (
-  <>
-    {/* Gráfico de histórico */}
-    <GraficoHistorico />
-    
-    {/* Cards de estatísticas rápidas (já existentes) */}
-    <FilaLista>
-      <h2 style={{ marginBottom: '1.5rem', color: colors.gray800 }}>
-        📊 Resumo Rápido
-      </h2>
+          <>
+            {/* Gráfico de histórico */}
+            <GraficoHistorico />
+            
+            {/* Cards de estatísticas rápidas */}
+            <FilaLista>
+              <h2 style={{ marginBottom: '1.5rem', color: colors.gray800 }}>
+                📊 Resumo Rápido
+              </h2>
 
-      <StatsGrid>
-        <StatsCard>
-          <StatsInfo>
-            <StatsLabel>Atendidos hoje</StatsLabel>
-            <StatsValue>{stats.atendidosHoje}</StatsValue>
-          </StatsInfo>
-        </StatsCard>
+              <StatsGrid>
+                <StatsCard>
+                  <StatsInfo>
+                    <StatsLabel>Atendidos hoje</StatsLabel>
+                    <StatsValue>{stats.atendidosHoje}</StatsValue>
+                  </StatsInfo>
+                </StatsCard>
 
-        <StatsCard>
-          <StatsInfo>
-            <StatsLabel>Tempo médio de espera</StatsLabel>
-            <StatsValue>{stats.mediaEspera} min</StatsValue>
-          </StatsInfo>
-        </StatsCard>
+                <StatsCard>
+                  <StatsInfo>
+                    <StatsLabel>Tempo médio de espera</StatsLabel>
+                    <StatsValue>{stats.mediaEspera} min</StatsValue>
+                  </StatsInfo>
+                </StatsCard>
 
-        <StatsCard>
-          <StatsInfo>
-            <StatsLabel>Total na fila</StatsLabel>
-            <StatsValue>{fila.length}</StatsValue>
-          </StatsInfo>
-        </StatsCard>
-      </StatsGrid>
-    </FilaLista>
-  </>
-)}
+                <StatsCard>
+                  <StatsInfo>
+                    <StatsLabel>Total na fila</StatsLabel>
+                    <StatsValue>{fila.length}</StatsValue>
+                  </StatsInfo>
+                </StatsCard>
+              </StatsGrid>
+            </FilaLista>
+          </>
+        )}
 
         {tabAtiva === 'historico' && (
           <FilaLista>
