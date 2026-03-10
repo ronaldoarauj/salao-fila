@@ -363,7 +363,7 @@ export default function AdminPage() {
     if (logado) {
       carregarUltimaSenha();
       buscarFila();
-      const intervalo = setInterval(buscarFila, 2000);
+      const intervalo = setInterval(buscarFila, 60000);
       return () => clearInterval(intervalo);
     }
   }, [logado]);
