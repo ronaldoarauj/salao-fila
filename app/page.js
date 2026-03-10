@@ -37,7 +37,7 @@ export default function Home() {
 
   useEffect(() => {
     buscarFila();
-    const intervaloFila = setInterval(buscarFila, 2000);
+    const intervaloFila = setInterval(buscarFila, 120000);
     const intervaloRelogio = setInterval(() => {
       setHora(new Date().toLocaleTimeString());
     }, 1000);
