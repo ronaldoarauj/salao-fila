@@ -35,7 +35,7 @@ const LoginSubtitle = styled.p`
 `;
 
 const Input = styled.input`
-  width: 100%;
+  width: 90%;
   padding: 1rem;
   border: 2px solid ${props => props.error ? '#f56565' : '#e2e8f0'};
   border-radius: 0.5rem;
