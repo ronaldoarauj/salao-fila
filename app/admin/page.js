@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import styled, { keyframes } from 'styled-components';
+import { createClient } from '@/lib/supabaseClient';
 import {
   AppContainer,
   Header,
@@ -304,34 +306,17 @@ const Td = styled.td`
   border-bottom: 1px solid ${colors.gray200};
 `;
 
-const LoginContainer = styled.div`
-  min-height: 100vh;
+const UserInfo = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%);
-`;
-
-const LoginCard = styled.div`
-  background: ${colors.white};
-  padding: 2.5rem;
-  border-radius: 1.5rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 400px;
-`;
-
-const LoginTitle = styled.h1`
-  color: ${colors.gray800};
-  text-align: center;
-  margin-bottom: 2rem;
+  gap: 0.5rem;
+  color: ${colors.gray600};
+  font-size: 0.875rem;
 `;
 
 export default function AdminPage() {
   const [fila, setFila] = useState([]);
-  const [proximaSenha, setProximaSenha] = useState(0);
-  const [logado, setLogado] = useState(false);
-  const [senhaInput, setSenhaInput] = useState('');
+  const [proximaSenha, setProximaSenha] = useState(100);
   const [loading, setLoading] = useState(false);
   const [tabAtiva, setTabAtiva] = useState('fila');
   const [stats, setStats] = useState({
@@ -340,6 +325,8 @@ export default function AdminPage() {
     totalGeral: 0
   });
   const [historico, setHistorico] = useState([]);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   
   const [feedback, setFeedback] = useState({
     show: false,
@@ -348,54 +335,110 @@ export default function AdminPage() {
     mensagem: ''
   });
 
+  const router = useRouter();
+  const supabase = createClient();
+
+  // Verificar usuário logado
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+      } else {
+        setUser(user);
+        // Carregar dados iniciais
+        await Promise.all([
+          carregarUltimaSenha(),
+          buscarFila()
+        ]);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar usuário:', error);
+      router.push('/login');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   // Carregar última senha do banco
   const carregarUltimaSenha = async () => {
     try {
+      console.log('Carregando última senha...');
       const res = await fetch('/api/config');
       const data = await res.json();
+      console.log('Última senha carregada:', data.ultimaSenha);
       setProximaSenha(data.ultimaSenha);
     } catch (error) {
       console.error('Erro ao carregar última senha:', error);
     }
   };
 
+  // EFEITO PRINCIPAL - com intervalo de 1 MINUTO (60000 ms)
   useEffect(() => {
-    if (logado) {
-      carregarUltimaSenha();
-      buscarFila();
-      const intervalo = setInterval(buscarFila, 300000);
-      return () => clearInterval(intervalo);
+    if (user) {
+      const intervaloFila = setInterval(() => {
+        buscarFila();
+        carregarUltimaSenha(); // Também atualiza a última senha
+      }, 60000); // 1 minuto
+      
+      return () => {
+        clearInterval(intervaloFila);
+      };
     }
-  }, [logado]);
+  }, [user]);
 
+  // Efeito para buscar stats quando muda a aba
   useEffect(() => {
-    if (logado && tabAtiva === 'stats') {
+    if (user && tabAtiva === 'stats') {
       buscarStats();
+      
+      const intervaloStats = setInterval(buscarStats, 300000); // 5 minutos
+      return () => clearInterval(intervaloStats);
     }
-  }, [logado, tabAtiva]);
+  }, [user, tabAtiva]);
 
+  // Efeito para buscar histórico quando muda a aba
   useEffect(() => {
-    if (logado && tabAtiva === 'historico') {
+    if (user && tabAtiva === 'historico') {
       buscarHistorico();
     }
-  }, [logado, tabAtiva]);
+  }, [user, tabAtiva]);
 
   const buscarFila = async () => {
-    const res = await fetch('/api/fila');
-    const data = await res.json();
-    setFila(data);
+    try {
+      console.log('Buscando fila...', new Date().toLocaleTimeString());
+      const res = await fetch('/api/fila');
+      const data = await res.json();
+      setFila(data);
+    } catch (error) {
+      console.error('Erro ao buscar fila:', error);
+    }
   };
 
   const buscarStats = async () => {
-    const res = await fetch('/api/stats');
-    const data = await res.json();
-    setStats(data);
+    try {
+      console.log('Buscando stats...', new Date().toLocaleTimeString());
+      const res = await fetch('/api/stats');
+      const data = await res.json();
+      setStats(data);
+    } catch (error) {
+      console.error('Erro ao buscar stats:', error);
+    }
   };
 
   const buscarHistorico = async () => {
-    const res = await fetch('/api/historico');
-    const data = await res.json();
-    setHistorico(data);
+    try {
+      console.log('Buscando histórico...', new Date().toLocaleTimeString());
+      const res = await fetch('/api/historico');
+      const data = await res.json();
+      setHistorico(data);
+    } catch (error) {
+      console.error('Erro ao buscar histórico:', error);
+    }
   };
 
   const mostrarFeedback = (numero, tipo, mensagem) => {
@@ -420,20 +463,29 @@ export default function AdminPage() {
     setLoading(true);
     const nova = proximaSenha + 1;
     
-    await fetch('/api/fila', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numero: nova })
-    });
-    
-    setProximaSenha(nova);
-    await buscarFila();
-    
-    mostrarFeedback(nova, 'add', 'Cliente adicionado à fila');
-    
-    if (tabAtiva === 'stats') buscarStats();
-    if (tabAtiva === 'historico') buscarHistorico();
-    setLoading(false);
+    try {
+      const res = await fetch('/api/fila', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          numero: nova,
+          user_id: user?.id 
+        })
+      });
+
+      if (res.ok) {
+        setProximaSenha(nova);
+        await buscarFila();
+        mostrarFeedback(nova, 'add', 'Cliente adicionado à fila');
+        
+        if (tabAtiva === 'stats') buscarStats();
+        if (tabAtiva === 'historico') buscarHistorico();
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const remover = async () => {
@@ -445,56 +497,63 @@ export default function AdminPage() {
     const numeroRemovido = fila[0];
     
     setLoading(true);
-    await fetch('/api/fila', { method: 'DELETE' });
-    await buscarFila();
-    
-    mostrarFeedback(numeroRemovido, 'remove', 'Cliente chamado para atendimento');
-    
-    if (tabAtiva === 'stats') buscarStats();
-    if (tabAtiva === 'historico') buscarHistorico();
-    setLoading(false);
+    try {
+      const res = await fetch('/api/fila', { method: 'DELETE' });
+      if (res.ok) {
+        await buscarFila();
+        mostrarFeedback(numeroRemovido, 'remove', 'Cliente chamado para atendimento');
+        
+        if (tabAtiva === 'stats') buscarStats();
+        if (tabAtiva === 'historico') buscarHistorico();
+      }
+    } catch (error) {
+      console.error('Erro ao remover:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const reiniciar = async () => {
     if (confirm('Tem certeza? Isso vai apagar toda a fila!')) {
       setLoading(true);
-      await fetch('/api/fila', { method: 'PUT' });
-      await carregarUltimaSenha();
-      await buscarFila();
-      setLoading(false);
+      try {
+        await fetch('/api/fila', { method: 'PUT' });
+        await carregarUltimaSenha();
+        await buscarFila();
+      } catch (error) {
+        console.error('Erro ao reiniciar:', error);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  // Tela de Login
-  if (!logado) {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  // Loading enquanto verifica autenticação
+  if (authLoading) {
     return (
-      <LoginContainer>
-        <LoginCard>
-          <LoginTitle>🔐 Acesso Restrito</LoginTitle>
-          <Input
-            type="password"
-            placeholder="Digite a senha (1234)"
-            value={senhaInput}
-            onChange={(e) => setSenhaInput(e.target.value)}
-            style={{ marginBottom: '1rem', textAlign: 'center' }}
-          />
-          <Button
-            variant="primary"
-            onClick={() => {
-              if (senhaInput === '1234') {
-                setLogado(true);
-              } else {
-                alert('Senha incorreta!');
-              }
-            }}
-            style={{ width: '100%' }}
-          >
-            Entrar
-          </Button>
-        </LoginCard>
-      </LoginContainer>
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white'
+      }}>
+        Carregando...
+      </div>
     );
   }
+
+  // Se não tiver usuário, não renderiza nada (redireciona no useEffect)
+  if (!user) {
+    return null;
+  }
+
 
   // Painel Admin
   return (
@@ -518,13 +577,19 @@ export default function AdminPage() {
             <span>🎮</span>
             <span>PAINEL ADMIN</span>
           </Logo>
-          <Button
-            variant="danger"
-            onClick={() => setLogado(false)}
-            style={{ padding: '0.5rem 1rem' }}
-          >
-            Sair
-          </Button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <UserInfo>
+              <span>👤 {user.email}</span>
+            </UserInfo>
+            <Button
+              variant="danger"
+              onClick={handleLogout}
+              style={{ padding: '0.5rem 1rem' }}
+            >
+              Sair
+            </Button>
+          </div>
         </HeaderContent>
       </Header>
 

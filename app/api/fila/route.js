@@ -51,11 +51,19 @@ export async function POST(request) {
     if (error) throw error;
 
     // Atualizar última senha na config
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ultimaSenha: numero })
-    });
+    const { error: configError } = await supabase
+      .from('config')
+      .update({ ultima_senha: numero })
+      .eq('id', 1);
+
+    if (configError) {
+      // Se não existir, insere
+      if (configError.code === 'PGRST116') {
+        await supabase
+          .from('config')
+          .insert([{ id: 1, ultima_senha: numero }]);
+      }
+    }
 
     return NextResponse.json({ 
       success: true, 
@@ -137,11 +145,10 @@ export async function PUT() {
     if (error) throw error;
 
     // Reinicia a última senha para 100
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ultimaSenha: 100 })
-    });
+    await supabase
+      .from('config')
+      .update({ ultima_senha: 0 })
+      .eq('id', 1);
 
     return NextResponse.json({ success: true, mensagem: 'Fila reiniciada' });
   } catch (error) {
